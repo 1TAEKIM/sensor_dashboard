@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Data Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #container {
+            display: flex;
+            flex-direction: row;
+            height: 100%;
+        }
+        #leftPane {
+            width: 30%;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border-right: 2px solid #ccc;
+            box-sizing: border-box;
+        }
+        #rightPane {
+            width: 70%;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+        #header {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2em;
+            font-weight: bold;
+        }
+        #predictionOutput {
+            flex: 0 0 10%;
+            padding: 10px;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+            text-align: center;
+            font-size: 1.2em;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        #dataCharts {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+            box-sizing: border-box;
+        }
+        .chartContainer {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #fff;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        #countsChartContainer {
+            flex: 0 0 25%;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #fff;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        #buttons {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        #buttons button {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 1.2em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+        #buttons button:hover {
+            background-color: #45a049;
+        }
+        #buttons #stopButton {
+            background-color: #f44336;
+        }
+        #buttons #stopButton:hover {
+            background-color: #e53935;
+        }
+        #totals {
+            text-align: center;
+            margin-top: 10px;
+            flex: 0 0 auto;
+            font-size: 1.5em;
+        }
+        #defectiveRate {
+            margin-top: 10px;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="leftPane">
+            <div id="header">Sensor Data Dashboard</div>
+            <div id="buttons">
+                <button id="startButton">실행</button>
+                <button id="stopButton">중지</button>
+            </div>
+            <div id="totals">
+                <p>양품: <span id="goodCount">0</span></p>
+                <p>불량품: <span id="badCount">0</span></p>
+                <p id="defectiveRate">불량률: 0%</p> <!-- 불량률을 표시합니다. -->
+            </div>
+            <div id="countsChartContainer">
+                <canvas id="countsChart"></canvas>
+            </div>
+        </div>
+        <div id="rightPane">
+            <div id="predictionOutput">
+                <p>Prediction will appear here...</p>
+            </div>
+            <div id="dataCharts">
+                <div class="chartContainer">
+                    <canvas id="sensorChart1"></canvas>
+                </div>
+                <div class="chartContainer">
+                    <canvas id="sensorChart2"></canvas>
+                </div>
+                <div class="chartContainer">
+                    <canvas id="sensorChart3"></canvas>
+                </div>
+                <div class="chartContainer">
+                    <canvas id="sensorChart4"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let interval;
+        let goodCount = 0;
+        let badCount = 0;
+
+        const predictionOutput = $('#predictionOutput');
+        const goodCountElement = $('#goodCount');
+        const badCountElement = $('#badCount');
+        const defectiveRateElement = $('#defectiveRate');
+
+        function updateDefectiveRate() {
+            const totalCount = goodCount + badCount;
+            if (totalCount > 0) {
+                const defectiveRate = (badCount / totalCount) * 100;
+                defectiveRateElement.text(`불량률: ${defectiveRate.toFixed(2)}%`);
+            } else {
+                defectiveRateElement.text('불량률: 0%');
+            }
+        }
+
+        // Sensor Data Charts
+        const sensorChart1 = new Chart(document.getElementById('sensorChart1').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Sensor Data 1',
+                    data: [],
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    x: { type: 'linear', position: 'bottom' },
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        const sensorChart2 = new Chart(document.getElementById('sensorChart2').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Sensor Data 2',
+                    data: [],
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    x: { type: 'linear', position: 'bottom' },
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        const sensorChart3 = new Chart(document.getElementById('sensorChart3').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Sensor Data 3',
+                    data: [],
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    x: { type: 'linear', position: 'bottom' },
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        const sensorChart4 = new Chart(document.getElementById('sensorChart4').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Sensor Data 4',
+                    data: [],
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    x: { type: 'linear', position: 'bottom' },
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        // Counts Chart
+        const countsChart = new Chart(document.getElementById('countsChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ['양품', '불량품'],
+                datasets: [{
+                    label: 'Count',
+                    data: [goodCount, badCount],
+                    backgroundColor: ['rgba(75, 192, 192, 0.5)', 'rgba(255, 99, 132, 0.5)'],
+                    borderColor: ['rgba(75, 192, 192, 1)', 'rgba(255, 99, 132, 1)'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        $('#startButton').click(function() {
+            if (interval) {
+                clearInterval(interval);  // 이미 실행 중인 경우 중지
+            }
+            
+            interval = setInterval(function() {
+                $.ajax({
+                    url: '/process-data/',
+                    method: 'GET',
+                    success: function(response) {
+                        if (response.status === "No more data") {
+                            clearInterval(interval);
+                            predictionOutput.html('<p>No more data to process.</p>');
+                        } else {
+                            // 예측값과 품질 상태를 고정된 위치에 표시
+                            const predictionText = 'Prediction: ' + response.prediction + ' (' + response.quality + ')';
+                            predictionOutput.html('<p>' + predictionText + '</p>');
+
+                            // 양품과 불량품 개수를 업데이트
+                            if (response.quality === "양품") {
+                                goodCount++;
+                            } else {
+                                badCount++;
+                            }
+                            goodCountElement.text(goodCount);
+                            badCountElement.text(badCount);
+
+                            // 불량률 업데이트
+                            updateDefectiveRate();
+
+                            // Counts Chart 업데이트
+                            countsChart.data.datasets[0].data = [goodCount, badCount];
+                            countsChart.update();
+                            
+                            // 센서 데이터 그래프에 추가
+                            const currentTime = sensorChart1.data.labels.length;
+                            sensorChart1.data.labels.push(currentTime);
+                            sensorChart1.data.datasets[0].data.push(response.sensorData.sensor1);
+                            sensorChart1.update();
+
+                            sensorChart2.data.labels.push(currentTime);
+                            sensorChart2.data.datasets[0].data.push(response.sensorData.sensor2);
+                            sensorChart2.update();
+
+                            sensorChart3.data.labels.push(currentTime);
+                            sensorChart3.data.datasets[0].data.push(response.sensorData.sensor3);
+                            sensorChart3.update();
+
+                            sensorChart4.data.labels.push(currentTime);
+                            sensorChart4.data.datasets[0].data.push(response.sensorData.sensor4);
+                            sensorChart4.update();
+                        }
+                    }
+                });
+            }, 1000);  // 1초 간격
+        });
+
+        $('#stopButton').click(function() {
+            if (interval) {
+                clearInterval(interval);  // 실행 중인 인터벌을 중지
+                interval = null;  // 인터벌 변수 초기화
+                predictionOutput.append('<p>Process stopped.</p>');
+            }
+        });
+    </script>
+</body>
+</html>
