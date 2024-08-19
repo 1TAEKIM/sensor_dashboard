@@ -49,7 +49,7 @@
             border-radius: 10px;
             background-color: #f9f9f9;
             text-align: center;
-            font-size: 1.2em;
+            font-size: 2.0em;
             overflow-y: auto;
             box-sizing: border-box;
         }
@@ -95,7 +95,7 @@
             width: 80%;
             padding: 10px;
             margin: 10px 0;
-            font-size: 1.2em;
+            font-size: 1.8em;
             background-color: #4CAF50;
             color: white;
             border: none;
@@ -116,7 +116,7 @@
             text-align: center;
             margin-top: 10px;
             flex: 0 0 auto;
-            font-size: 1.5em;
+            font-size: 2.5em;
         }
         #defectiveRate {
             margin-top: 10px;
@@ -274,7 +274,14 @@
             },
             options: {
                 scales: {
-                    y: { beginAtZero: true }
+                    y: { beginAtZero: true },
+                    x: { 
+                        ticks: {
+                            font: {
+                                size: 18, // x축 레이블 폰트 크기
+                            }
+                        }
+                    }
                 }
             }
         });
